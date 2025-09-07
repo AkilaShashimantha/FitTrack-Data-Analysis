@@ -6,3 +6,5 @@ streamlit
 plotly
 nbformat
 statsmodels
+kaleido
+fpdf2
