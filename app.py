@@ -399,14 +399,20 @@ Generated with your current inputs in the What‑if Analysis.
 
                 # Compose PDF
                 pdf = FPDF(orientation='P', unit='mm', format='A4')
+                # Consistent margins to ensure enough text width
+                pdf.set_margins(left=12, top=15, right=12)
                 pdf.set_auto_page_break(auto=True, margin=15)
                 pdf.add_page()
 
+                # Title
                 pdf.set_font('Helvetica', 'B', 16)
-                pdf.cell(0, 10, 'FitTrack Personalized Report', ln=True)
+                pdf.set_x(pdf.l_margin)
+                pdf.cell(pdf.w - pdf.l_margin - pdf.r_margin, 10, 'FitTrack Personalized Report', ln=True)
                 pdf.ln(2)
 
+                # Body
                 pdf.set_font('Helvetica', '', 12)
+                content_w = pdf.w - pdf.l_margin - pdf.r_margin
                 # Summary text
                 avg_steps_local = int(_df['TotalSteps'].mean()) if 'TotalSteps' in _df.columns else None
                 steps_cmp_local = f"(dataset avg ~{avg_steps_local:,})" if avg_steps_local else ""
@@ -427,21 +433,33 @@ Generated with your current inputs in the What‑if Analysis.
                 for k, v in top_imp_local:
                     lines.append(f"- {k}: {v:+.0f} kcal")
 
+                # Ensure safe text encoding and enough width
                 for ln in lines:
-                    pdf.multi_cell(0, 8, ln)
+                    safe = ln.encode('latin-1', 'replace').decode('latin-1')
+                    pdf.set_x(pdf.l_margin)
+                    pdf.multi_cell(content_w, 8, safe)
 
                 pdf.ln(4)
-                # Add images (stacked)
+                # Add images (stacked) within content width
                 try:
-                    pdf.image(io.BytesIO(donut_png), w=170, type='PNG')
-                    pdf.ln(4)
-                    pdf.image(io.BytesIO(gauge_png), w=170, type='PNG')
+                    if donut_png:
+                        pdf.image(io.BytesIO(donut_png), w=content_w, type='PNG')
+                        pdf.ln(4)
+                    if gauge_png:
+                        pdf.image(io.BytesIO(gauge_png), w=content_w, type='PNG')
                 except Exception:
                     # If embedding fails, continue without images
                     pass
 
                 out = pdf.output(dest='S')
-                return out.encode('latin-1') if isinstance(out, str) else out
+                # Normalize to bytes for Streamlit download_button
+                if isinstance(out, str):
+                    data = out.encode('latin-1', 'ignore')
+                elif isinstance(out, bytearray):
+                    data = bytes(out)
+                else:
+                    data = out  # already bytes
+                return data
 
             # Show a single-click PDF download button
             try:
